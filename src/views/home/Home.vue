@@ -1,62 +1,123 @@
 <template>
-  <div id="home">
+  <div id="home" class="wrapper">
     <nav-bar class="home-nav">
       <div slot="center">购物街</div>
     </nav-bar>
-    <home-swiper :banners="banners"></home-swiper>
-    <home-recommd-view :recommends="recommends"></home-recommd-view>
-    <home-feature-view></home-feature-view>
-    <ul>
-      <li>haifengzuishuai1</li>
-      <li>haifengzuishuai2</li>
-      <li>haifengzuishuai3</li>
-      <li>haifengzuishuai4</li>
-      <li>haifengzuishuai5</li>
-      <li>haifengzuishuai6</li>
-      <li>haifengzuishuai7</li>
-      <li>haifengzuishuai8</li>
-      <li>haifengzuishuai9</li>
-      <li>haifengzuishuai10</li>
-    </ul>
+    <scroll class="content" ref="scroll" :probe-type="3" @scroll="contentScroll" :pull-up-load="true"
+            @pullingup="loadmore">
+      <home-swiper :banners="banners"></home-swiper>
+      <home-recommd-view :recommends="recommends"></home-recommd-view>
+      <home-feature-view></home-feature-view>
+      <tab-control class="tab-control" :titles="['流行','新款','精选']" @tabClicka="tabClick"></tab-control>
+      <goods-list :goods="showGoods"/>
+    </scroll>
+    <back-top @click.native="backClick" v-show="isbackTop"/>
   </div>
 </template>
 
 <script>
-import NavBar from "../../components/common/navbar/NavBar";
+
 import HomeSwiper from "./childComps/HomeSwiper";
 import HomeRecommdView from "./childComps/HomeRecommdView";
 import HomeFeatureView from "./childComps/HomeFeatureView";
-import {getHomeMultidata} from "../../network/home";
+
+import NavBar from "../../components/common/navbar/NavBar";
+import TabControl from "../../components/content/tabControl/TabControl";
+import GoodsList from "../../components/content/goods/GoodsList";
+import Scroll from "../../components/common/scroll/Scroll";
+import BackTop from "../../components/content/BackTop/BackTop";
+
+import {getHomeMultidata, getHomeGoods} from "../../network/home";
 
 export default {
   name: "home",
   components: {
-    NavBar, HomeSwiper, HomeRecommdView, HomeFeatureView
+    NavBar, HomeSwiper, HomeRecommdView, HomeFeatureView, TabControl, GoodsList, Scroll, BackTop
   },
   data() {
     return {
       banners: [],
       recommends: [],
+      isbackTop: false,
+      goods: {
+        'pop': {page: 0, list: []},
+        'new': {page: 0, list: []},
+        'sell': {page: 0, list: []},
+      },
+      currentType: 'pop'
+    }
+  },
+  computed: {
+    showGoods() {
+      return this.goods[this.currentType].list
     }
   },
   created() {
-    getHomeMultidata().then(res => {
-      console.log(res)
-      this.banners = res.data.banner.list;
-      this.recommends = res.data.recommend.list;
-    })
+    this.getHomeMultidata()
+    this.getHomeGoods('pop')
+    this.getHomeGoods('new')
+    this.getHomeGoods('sell')
+  },
+  methods: {
+    /**
+     * 事件监听
+     */
+    tabClick(index) {
+      switch (index) {
+        case 0:
+          this.currentType = 'pop';
+          break
+        case 1:
+          this.currentType = 'new'
+          break
+        case 2:
+          this.currentType = 'sell'
+          break
+      }
+    },
+    /**
+     * 网络请求
+     */
+    getHomeMultidata() {
+      getHomeMultidata().then(res => {
+        this.banners = res.data.banner.list;
+        this.recommends = res.data.recommend.list;
+      })
+    },
+    getHomeGoods(type) {
+      const page = this.goods[type].page + 1
+      getHomeGoods(type, page).then(res => {
+        this.goods[type].list.push(...res.data.list)
+        this.goods[type].page + 1
+        this.$refs.scroll.finishPullUp()
+      })
+    },
+    backClick() {
+      this.$refs.scroll.scrollTo(0, 0, 500)
+    },
+    loadmore() {
+      console.log("加载了");
+      this.getHomeGoods(this.currentType)
+      this.$refs.scroll.scroll.refresh()
+    },
+    contentScroll(position) {
+      this.isbackTop = -(position.y) > 1000;
+    }
   }
 }
 </script>
 
 <style scoped>
 #home {
-  padding-top: 44px
+  /*padding-top: 44px;*/
+  height: 100vh;
+  position: relative;
 }
 
 .home-nav {
-  color: #fff;
   background-color: var(--color-tint);
+  color: #fff;
+
   position: fixed;
   left: 0;
   right: 0;
@@ -64,4 +125,25 @@ export default {
   z-index: 9;
 }
 
+.tab-control {
+  position: sticky;
+  top: 44px;
+  z-index: 9;
+}
+
+.content {
+  overflow: hidden;
+
+  position: absolute;
+  top: 44px;
+  bottom: 49px;
+  left: 0;
+  right: 0;
+}
+
+/*.content{*/
+/*  height: calc(100% - 93px);*/
+/*  overflow: hidden;*/
+/*  margin-top: 51px;*/
+/*}*/
 </style>
